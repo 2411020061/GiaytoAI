@@ -1,0 +1,30 @@
+[versions]
+agp = "9.4.1"
+junit = "4.13.2"
+junitVersion = "1.1.5"
+espressoCore = "3.5.1"
+appcompat = "1.6.1"
+material = "1.10.0"
+activityKtx = "1.8.0"
+constraintlayout = "2.1.4"
+room3Common = "3.0.2"
+room3Runtime = "3.0.2"
+objectDetectionCommon = "18.0.0"
+objectDetection = "17.0.2"
+
+[libraries]
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
+constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+room3-common = { group = "androidx.room3", name = "room3-common", version.ref = "room3Common" }
+room3-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room3Runtime" }
+object1-detection-common = { group = "com.google.mlkit", name = "object-detection-common", version.ref = "objectDetectionCommon" }
+object1-detection = { group = "com.google.mlkit", name = "object-detection", version.ref = "objectDetection" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+

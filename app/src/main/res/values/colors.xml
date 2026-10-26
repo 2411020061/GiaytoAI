@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Warm Coral/Orange Primary theme matching mockup -->
+    <color name="primary">#D9531E</color>
+    <color name="primary_dark">#BF360C</color>
+    <color name="primary_light">#FBE9E7</color>
+    <color name="primary_variant">#E65100</color>
+
+    <color name="secondary">#2979FF</color>
+    <color name="secondary_light">#E3F2FD</color>
+
+    <!-- Backgrounds -->
+    <color name="background">#F4F5F7</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F8F9FA</color>
+
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_background">#1A1D1E</color>
+
+    <!-- Status Badges -->
+    <color name="success">#2E7D32</color>
+    <color name="badge_active_bg">#E8F5E9</color>
+    <color name="badge_active_text">#2E7D32</color>
+
+    <color name="badge_warning_bg">#FFF3E0</color>
+    <color name="badge_warning_text">#D9531E</color>
+
+    <color name="badge_danger_bg">#FFEBEE</color>
+    <color name="badge_danger_text">#C62828</color>
+
+    <color name="badge_info_bg">#E3F2FD</color>
+    <color name="badge_info_text">#1565C0</color>
+
+    <!-- Text -->
+    <color name="text_primary">#1A1D1E</color>
+    <color name="text_secondary">#6C757D</color>
+    <color name="text_hint">#ADB5BD</color>
+    <color name="divider">#E9ECEF</color>
+
+    <!-- Dark Card Accent -->
+    <color name="card_dark">#121417</color>
+    <color name="ai_card_bg">#181A1D</color>
+</resources>
