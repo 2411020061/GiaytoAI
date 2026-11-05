@@ -1,108 +1,3 @@
-package vn.edu.mku.ecoscan.ml;
-
-import android.graphics.Bitmap;
-import android.util.Log;
-
-import com.google.mlkit.vision.common.InputImage;
-import com.google.mlkit.vision.text.TextRecognition;
-import com.google.mlkit.vision.text.TextRecognizer;
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
-
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import vn.edu.mku.ecoscan.data.DocumentEntity;
-
-public class DocumentOcrParser {
-
-    private static final String TAG = "DocumentOcrParser";
-
-    public interface OcrCallback {
-        void onSuccess(DocumentEntity document);
-        void onError(Exception e);
-    }
-
-    public static void parseDocumentImage(Bitmap bitmap, String imagePath, OcrCallback callback) {
-        if (bitmap == null) {
-            callback.onError(new IllegalArgumentException("Ảnh không hợp lệ"));
-            return;
-        }
-
-        InputImage image = InputImage.fromBitmap(bitmap, 0);
-        TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-
-        recognizer.process(image)
-                .addOnSuccessListener(visionText -> {
-                    DocumentEntity entity = processExtractedText(visionText.getText(), imagePath);
-                    callback.onSuccess(entity);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Lỗi nhận diện OCR ML Kit", e);
-                    DocumentEntity fallbackEntity = createFallbackDocument("Căn cước công dân", imagePath);
-                    callback.onSuccess(fallbackEntity);
-                });
-    }
-
-    public static DocumentEntity processExtractedText(String rawText, String imagePath) {
-        if (rawText == null) rawText = "";
-
-        Log.d(TAG, "--- RAW OCR FULL CCCD CARD TEXT --- \n" + rawText);
-
-        String type = "CCCD";
-        String title = "Căn cước công dân";
-
-        // 1. Trích xuất Họ tên chủ thẻ CCCD
-        String holderName = extractHolderName(rawText);
-
-        // 2. Trích xuất Số CCCD (đúng 12 chữ số)
-        String docNumber = extractCccdNumber(rawText);
-
-        // 3. Trích xuất Ngày cấp & Ngày hết hạn từ mặt trước/sau thẻ CCCD
-        String[] dates = extractDates(rawText);
-        String issueDate = dates[0];
-        String expiryDate = dates[1];
-
-        if (issueDate.isEmpty()) {
-            issueDate = "01/01/2021";
-        }
-        if (expiryDate.isEmpty()) {
-            expiryDate = "01/01/2035";
-        }
-
-        // 4. Trích xuất địa chỉ nơi thường trú / quê quán nếu có
-        String address = extractAddress(rawText);
-
-        int daysLeft = calculateDaysLeft(expiryDate);
-        String status = "ACTIVE";
-        if (daysLeft <= 0) {
-            status = "EXPIRED";
-        } else if (daysLeft <= 30) {
-            status = "EXPIRING_SOON";
-        }
-
-        if (holderName.isEmpty()) {
-            holderName = "NGUYỄN VĂN A";
-        }
-
-        DocumentEntity entity = new DocumentEntity(
-                title, type, docNumber, holderName,
-                issueDate, expiryDate, daysLeft, status, imagePath
-        );
-        entity.notes = "Trích xuất toàn bộ thông tin thẻ CCCD bằng AI OCR";
-        if (!address.isEmpty()) {
-            entity.notes += " - Thường trú: " + address;
-        }
-
-        return entity;
-    }
-
-    private static String extractHolderName(String rawText) {
         String[] lines = rawText.split("\n");
         Pattern namePattern = Pattern.compile("(Họ tên|Họ và tên|Full name|Name|Họ và tên / Full name)[:\\s]+([A-ZÂĂÊÔƠƯĐàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ\\s]+)", Pattern.CASE_INSENSITIVE);
 
@@ -116,7 +11,6 @@ public class DocumentOcrParser {
             }
         }
 
-        // Tìm dòng in hoa nguyên câu tên người trên bề mặt thẻ CCCD
         for (String line : lines) {
             String trimmed = line.trim();
             if (trimmed.matches("^[A-ZÂĂÊÔƠƯĐ\\s]{5,35}$")
@@ -135,7 +29,6 @@ public class DocumentOcrParser {
     }
 
     private static String extractCccdNumber(String rawText) {
-        // Mã số CCCD gồm đúng 12 chữ số
         Pattern p = Pattern.compile("\\b(0\\d{11})\\b");
         Matcher m = p.matcher(rawText.replaceAll("\\s+", ""));
         if (m.find()) {

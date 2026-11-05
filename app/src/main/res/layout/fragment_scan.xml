@@ -39,28 +39,48 @@
                 android:textSize="18sp" />
         </com.google.android.material.card.MaterialCardView>
 
-        <LinearLayout
+        <View
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Hệ thống quét CCCD thông minh"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+        <!-- Nút Lật / Đổi Camera -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnSwitchCamera"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            app:cardBackgroundColor="#80000000"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Cổng thông tin định danh điện tử"
-                android:textColor="#CED4DA"
-                android:textSize="11sp" />
-        </LinearLayout>
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@android:drawable/ic_menu_camera"
+                app:tint="@color/white" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Nút Xoay Preview Camera 90 độ -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnRotatePreview"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            app:cardBackgroundColor="#80000000"
+            app:cardCornerRadius="18dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@android:drawable/ic_menu_rotate"
+                app:tint="@color/white" />
+        </com.google.android.material.card.MaterialCardView>
+
     </LinearLayout>
 
     <!-- Center Viewfinder Guideline Frame (CCCD Standard Ratio 85.6 x 54mm) -->
@@ -79,15 +99,18 @@
             app:strokeWidth="2dp">
 
             <LinearLayout
+                android:id="@+id/layoutCenterCapture"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:clickable="true"
+                android:focusable="true"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:padding="16dp">
 
                 <ImageView
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
                     android:src="@android:drawable/ic_menu_camera"
                     app:tint="#00E676" />
 
@@ -96,18 +119,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:text="🎯 Đang tìm mã QR trên CCCD..."
+                    android:text=""
                     android:textColor="#00E676"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Vui lòng đặt mặt trước CCCD gắn chip vào khung"
-                    android:textColor="#E9ECEF"
-                    android:textSize="11sp" />
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -120,7 +136,8 @@
             android:layout_marginTop="16dp"
             android:text="☀️ Đủ sáng   📐 Cân đối khung hình   ⚡ Tự động quét QR"
             android:textColor="#CED4DA"
-            android:textSize="11sp" />
+            android:textSize="11sp"
+            android:visibility="gone" />
     </RelativeLayout>
 
     <!-- Bottom Camera Controls -->
@@ -130,7 +147,8 @@
         android:layout_gravity="bottom"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingBottom="24dp">
+        android:paddingBottom="24dp"
+        android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"

@@ -4,6 +4,7 @@ import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -21,6 +22,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.squareup.picasso.Picasso;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -48,7 +50,7 @@ public class ConfirmDocumentActivity extends AppCompatActivity {
     private ImageView imgDocPreview;
     private Spinner spinnerDocType;
     private EditText etHolderName, etDocNumber, etIssueDate, etExpiryDate;
-    private View btnBackConfirm, btnRetake, btnChooseComputer, btnSaveConfirm;
+    private View btnBackConfirm, btnRetake, btnChooseComputer, btnSaveConfirm, btnRotate;
 
     private String imagePath;
 
@@ -126,6 +128,7 @@ public class ConfirmDocumentActivity extends AppCompatActivity {
         btnRetake = findViewById(R.id.btnRetake);
         btnChooseComputer = findViewById(R.id.btnChooseComputer);
         btnSaveConfirm = findViewById(R.id.btnSaveConfirm);
+        btnRotate = findViewById(R.id.btnRotate);
     }
 
     private void setupSpinner() {
@@ -170,12 +173,69 @@ public class ConfirmDocumentActivity extends AppCompatActivity {
         if (btnChooseComputer != null) {
             btnChooseComputer.setOnClickListener(v -> fileUploadLauncher.launch("image/*"));
         }
+        if (btnRotate != null) {
+            btnRotate.setOnClickListener(v -> rotateImage());
+        }
 
         etIssueDate.setOnClickListener(v -> showDatePicker(etIssueDate));
         etExpiryDate.setOnClickListener(v -> showDatePicker(etExpiryDate));
 
         if (btnSaveConfirm != null) {
             btnSaveConfirm.setOnClickListener(v -> saveVerifiedDocument());
+        }
+    }
+
+    private void rotateImage() {
+        if (imagePath == null || imagePath.isEmpty()) return;
+        try {
+            File imgFile = new File(imagePath);
+            if (!imgFile.exists()) return;
+
+            Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+            if (bitmap != null) {
+                Matrix matrix = new Matrix();
+                matrix.postRotate(90);
+                Bitmap rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+
+                FileOutputStream fos = new FileOutputStream(imgFile);
+                rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                fos.flush();
+                fos.close();
+
+                Picasso.get().invalidate(imgFile);
+                Picasso.get().load(imgFile).into(imgDocPreview);
+                Toast.makeText(this, "🔄 Đã xoay ảnh 90 độ!", Toast.LENGTH_SHORT).show();
+
+                // Re-run OCR / Gemini AI on rotated image
+                DocumentOcrParser.parseDocumentImage(rotatedBitmap, imagePath, new DocumentOcrParser.OcrCallback() {
+                    @Override
+                    public void onSuccess(DocumentEntity doc) {
+                        if (doc != null) {
+                            if (doc.holderName != null && !doc.holderName.isEmpty()) {
+                                etHolderName.setText(doc.holderName);
+                            }
+                            if (doc.documentNumber != null && !doc.documentNumber.isEmpty()) {
+                                etDocNumber.setText(doc.documentNumber);
+                            }
+                            if (doc.issueDate != null && !doc.issueDate.isEmpty()) {
+                                etIssueDate.setText(doc.issueDate);
+                            }
+                            if (doc.expiryDate != null && !doc.expiryDate.isEmpty()) {
+                                etExpiryDate.setText(doc.expiryDate);
+                            }
+                        }
+                        Toast.makeText(ConfirmDocumentActivity.this, "✨ Quét lại thông tin sau khi xoay ảnh thành công!", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e("ConfirmDocumentActivity", "Lỗi OCR sau khi xoay", e);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e("ConfirmDocumentActivity", "Lỗi xoay ảnh", e);
+            Toast.makeText(this, "❌ Không thể xoay ảnh", Toast.LENGTH_SHORT).show();
         }
     }
 

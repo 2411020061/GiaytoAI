@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.media.Image;
 import android.net.Uri;
 import android.os.Bundle;
@@ -44,6 +45,7 @@ import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -64,11 +66,13 @@ public class ScanFragment extends Fragment {
     private static final String TAG = "ScanFragment";
 
     private PreviewView previewView;
-    private View btnCapture, btnGallery, btnChooseFromGallery, btnCloseScan, btnUploadCccd;
+    private View btnCapture, btnGallery, btnChooseFromGallery, btnCloseScan, btnUploadCccd, layoutCenterCapture, btnSwitchCamera, btnRotatePreview;
     private MaterialCardView scanFrame;
     private TextView tvScanStatus;
     private ImageCapture imageCapture;
     private CccdClassifier cccdClassifier;
+    private boolean isFrontCamera = false;
+    private float currentPreviewRotation = 0f;
 
     // =========================================================================
     // 📍 KHỞI TẠO ROBOFLOW DETECTOR DÙNG MODEL: vietnamese-card-id-b0vlf-zm3c0
@@ -107,7 +111,7 @@ public class ScanFragment extends Fragment {
                             Log.e(TAG, "Lỗi đọc ảnh từ thư viện", e);
                         }
                     }
-                    processFallbackScan(selectedUri != null ? selectedUri.toString() : null, "Căn cước công dân", "CCCD", "0792010" + (System.currentTimeMillis() % 100000), "NGUYỄN MINH AN");
+                    Toast.makeText(requireContext(), "❌ Không thể đọc ảnh từ thư viện. Vui lòng chọn ảnh khác!", Toast.LENGTH_SHORT).show();
                 }
             });
 
@@ -175,6 +179,9 @@ public class ScanFragment extends Fragment {
         btnUploadCccd = root.findViewById(R.id.btnUploadCccd);
         btnCloseScan = root.findViewById(R.id.btnCloseScan);
         tvScanStatus = root.findViewById(R.id.tvScanStatus);
+        layoutCenterCapture = root.findViewById(R.id.layoutCenterCapture);
+        btnSwitchCamera = root.findViewById(R.id.btnSwitchCamera);
+        btnRotatePreview = root.findViewById(R.id.btnRotatePreview);
     }
 
     private void setupListeners() {
@@ -202,6 +209,31 @@ public class ScanFragment extends Fragment {
                 if (getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).switchToTab(R.id.nav_home);
                 }
+            });
+        }
+
+        if (btnSwitchCamera != null) {
+            btnSwitchCamera.setOnClickListener(v -> {
+                isFrontCamera = !isFrontCamera;
+                Toast.makeText(requireContext(), isFrontCamera ? "🔄 Đang đổi sang camera trước..." : "🔄 Đang đổi sang camera sau...", Toast.LENGTH_SHORT).show();
+                startCamera();
+            });
+        }
+
+        if (btnRotatePreview != null) {
+            btnRotatePreview.setOnClickListener(v -> {
+                currentPreviewRotation = (currentPreviewRotation + 90f) % 360f;
+                if (previewView != null) {
+                    previewView.setRotation(currentPreviewRotation);
+                }
+                Toast.makeText(requireContext(), "🔄 Đã xoay góc camera: " + (int) currentPreviewRotation + "°", Toast.LENGTH_SHORT).show();
+            });
+        }
+
+        if (layoutCenterCapture != null) {
+            layoutCenterCapture.setOnClickListener(v -> {
+                Toast.makeText(requireContext(), "📸 Đang chụp ảnh...", Toast.LENGTH_SHORT).show();
+                takePhoto();
             });
         }
     }
@@ -294,9 +326,10 @@ public class ScanFragment extends Fragment {
                 });
 
                 cameraProvider.unbindAll();
+                CameraSelector cameraSelector = isFrontCamera ? CameraSelector.DEFAULT_FRONT_CAMERA : CameraSelector.DEFAULT_BACK_CAMERA;
                 cameraProvider.bindToLifecycle(
                         ScanFragment.this,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        cameraSelector,
                         preview,
                         imageCapture,
                         imageAnalysis
@@ -439,8 +472,30 @@ public class ScanFragment extends Fragment {
         File photoFile = new File(ecoScanDir, "scan_cccd_" + System.currentTimeMillis() + ".jpg");
         String photoPath = photoFile.getAbsolutePath();
 
+        Bitmap bitmap = previewView != null ? previewView.getBitmap() : null;
+        if (bitmap != null) {
+            try {
+                if (currentPreviewRotation != 0f) {
+                    Matrix matrix = new Matrix();
+                    matrix.postRotate(currentPreviewRotation);
+                    bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+                }
+
+                FileOutputStream fos = new FileOutputStream(photoFile);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                fos.flush();
+                fos.close();
+
+                Toast.makeText(requireContext(), "📸 Đã chụp ảnh thành công!", Toast.LENGTH_SHORT).show();
+                processCapturedBitmapWithRoboflow(bitmap, photoPath);
+                return;
+            } catch (Exception e) {
+                Log.e(TAG, "Lưu ảnh bitmap từ preview thất bại", e);
+            }
+        }
+
         if (imageCapture == null) {
-            processFallbackScan(photoPath, "Căn cước công dân", "CCCD", "0792010" + (System.currentTimeMillis() % 100000), "NGUYỄN VĂN A");
+            Toast.makeText(requireContext(), "❌ Camera chưa sẵn sàng. Vui lòng thử lại!", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -451,18 +506,18 @@ public class ScanFragment extends Fragment {
                 new ImageCapture.OnImageSavedCallback() {
                     @Override
                     public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                        Bitmap bitmap = BitmapFactory.decodeFile(photoPath);
-                        if (bitmap != null) {
-                            processCapturedBitmapWithRoboflow(bitmap, photoPath);
+                        Bitmap bmp = BitmapFactory.decodeFile(photoPath);
+                        if (bmp != null) {
+                            processCapturedBitmapWithRoboflow(bmp, photoPath);
                         } else {
-                            processFallbackScan(photoPath, "Căn cước công dân", "CCCD", "0792010" + (System.currentTimeMillis() % 100000), "NGUYỄN VĂN A");
+                            Toast.makeText(requireContext(), "❌ Không thể đọc ảnh chụp!", Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
                     public void onError(@NonNull ImageCaptureException exception) {
                         Log.e(TAG, "Lỗi chụp ảnh", exception);
-                        processFallbackScan(photoPath, "Căn cước công dân", "CCCD", "0792010" + (System.currentTimeMillis() % 100000), "NGUYỄN VĂN A");
+                        Toast.makeText(requireContext(), "❌ Lỗi chụp ảnh: " + exception.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -477,91 +532,36 @@ public class ScanFragment extends Fragment {
                 @Override
                 public void onSuccess(List<RoboflowDetector.RoboflowPrediction> predictions, String rawResponse) {
                     Log.d(TAG, "Roboflow predictions count: " + predictions.size());
-                    // Tiếp tục xử lý bằng OCR MLKit & TFLite
                     processCapturedBitmap(bitmap, imagePath);
                 }
 
                 @Override
                 public void onError(Exception e) {
-                    Log.e(TAG, "Lỗi gọi Roboflow API (đang dùng fallback TFLite & OCR)", e);
+                    Log.e(TAG, "Lỗi gọi Roboflow API", e);
                     processCapturedBitmap(bitmap, imagePath);
                 }
             });
         } else {
-            // Trường hợp chưa dán API Key Roboflow -> dùng TFLite + OCR
             processCapturedBitmap(bitmap, imagePath);
         }
     }
 
     private void processCapturedBitmap(Bitmap bitmap, String imagePath) {
-        Toast.makeText(requireContext(), "🔍 AI TFLite & OCR đang quét toàn bộ thẻ CCCD...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), "🔍 AI Roboflow & OCR đang trích xuất thông tin CCCD...", Toast.LENGTH_SHORT).show();
 
-        // 1. Phân loại bằng mô hình TensorFlow Lite cccd_classifier.tflite
-        if (cccdClassifier != null) {
-            CccdClassifier.ClassificationResult tfliteResult = cccdClassifier.classify(bitmap);
-            Log.d(TAG, "Mô hình TFLite cccd_classifier: " + tfliteResult.label + " (độ tin cậy: " + tfliteResult.confidence + ")");
-            if (!tfliteResult.isCccd && tfliteResult.confidence > 0.65f) {
-                Toast.makeText(requireContext(), "❌ Mô hình AI TFLite phân loại: SAI (Không phải thẻ CCCD). Vui lòng chụp đúng Căn cước công dân!", Toast.LENGTH_LONG).show();
-                try {
-                    File f = new File(imagePath);
-                    if (f.exists()) f.delete();
-                } catch (Exception ignored) {}
-                isAutoCapturing = false;
-                return;
+        DocumentOcrParser.parseDocumentImage(bitmap, imagePath, new DocumentOcrParser.OcrCallback() {
+            @Override
+            public void onSuccess(DocumentEntity document) {
+                document.imagePath = imagePath;
+                openConfirmationScreen(document);
             }
-        }
 
-        // 2. Nhận diện văn bản OCR toàn bộ bề mặt thẻ CCCD bằng ML Kit
-        InputImage image = InputImage.fromBitmap(bitmap, 0);
-        TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-
-        recognizer.process(image)
-                .addOnSuccessListener(visionText -> {
-                    String rawText = visionText.getText() != null ? visionText.getText().toUpperCase() : "";
-
-                    boolean hasCccdKeyword = rawText.contains("CĂN CƯỚC")
-                            || rawText.contains("CĂN CƯỚC CÔNG DÂN")
-                            || rawText.contains("CITIZEN IDENTITY CARD");
-
-                    boolean hasOtherDocKeywords = rawText.contains("BẢO HIỂM Y TẾ")
-                            || rawText.contains("BHYT")
-                            || rawText.contains("GIẤY PHÉP LÁI XE")
-                            || rawText.contains("DRIVER LICENSE")
-                            || rawText.contains("HỘ CHIẾU")
-                            || rawText.contains("PASSPORT")
-                            || rawText.contains("THẺ SINH VIÊN")
-                            || rawText.contains("HỌC SINH")
-                            || rawText.contains("ĐĂNG KÝ XE");
-
-                    boolean isStrictCccd = hasCccdKeyword && !hasOtherDocKeywords;
-
-                    if (!isStrictCccd && rawText.length() < 10) {
-                        Toast.makeText(requireContext(), "❌ Chỉ chấp nhận Căn cước công dân (CCCD). Các giấy tờ khác không được nhận diện!", Toast.LENGTH_LONG).show();
-                        try {
-                            new File(imagePath).delete();
-                        } catch (Exception ignored) {}
-                        isAutoCapturing = false;
-                        return;
-                    }
-
-                    DocumentOcrParser.parseDocumentImage(bitmap, imagePath, new DocumentOcrParser.OcrCallback() {
-                        @Override
-                        public void onSuccess(DocumentEntity document) {
-                            document.imagePath = imagePath;
-                            openConfirmationScreen(document);
-                        }
-
-                        @Override
-                        public void onError(Exception e) {
-                            Log.e(TAG, "Lỗi phân tích OCR", e);
-                            processFallbackScan(imagePath, "Căn cước công dân", "CCCD", "0792010" + (System.currentTimeMillis() % 100000), "NGUYỄN VĂN A");
-                        }
-                    });
-                })
-                .addOnFailureListener(e -> {
-                    isAutoCapturing = false;
-                    Toast.makeText(requireContext(), "❌ Không thể nhận diện ảnh CCCD. Vui lòng chụp lại rõ nét hơn!", Toast.LENGTH_LONG).show();
-                });
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Lỗi phân tích OCR", e);
+                Toast.makeText(requireContext(), "❌ Không thể trích xuất thông tin từ ảnh. Vui lòng chụp rõ nét hơn!", Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void openConfirmationScreen(DocumentEntity doc) {
@@ -575,13 +575,5 @@ public class ScanFragment extends Fragment {
         intent.putExtra(ConfirmDocumentActivity.EXTRA_ISSUE_DATE, doc.issueDate);
         intent.putExtra(ConfirmDocumentActivity.EXTRA_EXPIRY_DATE, doc.expiryDate);
         startActivity(intent);
-    }
-
-    private void processFallbackScan(String imagePath, String title, String type, String number, String holder) {
-        DocumentEntity doc = new DocumentEntity(
-                title, type, number, holder,
-                "01/01/2021", "01/01/2035", 3650, "ACTIVE", imagePath
-        );
-        openConfirmationScreen(doc);
     }
 }
